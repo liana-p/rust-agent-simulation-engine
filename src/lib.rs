@@ -1,3 +1,12 @@
+/// Rust Agent-based Simulation
+///
+/// A library for doing agent and systems based simulations in Rust, with an example simulation.
+///
+/// **(Work in progress, not functional yet)**
+///
+/// Look at `main.rs` for a usage example.
+/// You need to create systems and agents, then instantiate a world and populate it with those
+///
 
 use uuid::Uuid;
 use std::{any::Any, collections::HashMap};
@@ -5,6 +14,7 @@ use cgmath::Vector2;
 
 pub type Position = Vector2<f32>;
 
+/// The main trait that all agent state structs need to implement
 pub trait AgentState {
     fn id() -> String where Self: Sized;
     fn dyn_id(&self) -> String;
@@ -23,6 +33,7 @@ pub struct SystemStorage<S: System> {
     pub id: String,
 }
 
+/// The World struct is the main struct that runs the simulation
 pub struct World {
     pub agents: Vec<Box<Agent>>,
     pub systems: HashMap<String, Box<dyn StoredSystem<dyn AgentState>>>,
@@ -35,6 +46,7 @@ impl World {
             systems: HashMap::new(),
         };
     }
+    /// Adds an agent to the world
     pub fn add_agent<A: AgentState + 'static>(&mut self, state: A) -> &Self{
         self.agents.push(Box::new(Agent {
             id: Uuid::new_v4().to_string(),
@@ -43,6 +55,7 @@ impl World {
         return self;
     }
 
+    /// Adds a system to the available systems
     pub fn add_system<S: System, A: AgentState + 'static>(&mut self, system: S) -> &Self {
         // TODO: Can't figure out how to insert the system because of object trait size issues
       let stored_system = Box::new(StoredSystemStruct {
@@ -71,10 +84,12 @@ impl World {
     }
 }
 
+/// The main trait that all system structs need to implement
 pub trait System {
     type StateData: AgentState;
     fn id() -> String where Self: Sized;
     fn dyn_id(&self) -> String;
+    /// This function is called for every actor that uses the system and gives user code the opportunity to change the state
     fn simulate(&self, id: String, state: &mut Self::StateData, world: &mut World);
 }
 pub trait StoredSystem<A: AgentState> {

@@ -11,13 +11,13 @@ mod constants;
 
 
 fn main() {
-    println!("Hello, world!");
     let mut world = World::new();
     create_player(&mut world, true);
     for i in 0..10 {
         create_player(&mut world, false);
     }
     world.add_system(systems::TagAgentSystem::default());
+    simulation_tick(&world);
 
 }
 
