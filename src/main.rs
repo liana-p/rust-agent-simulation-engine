@@ -1,55 +1,46 @@
-use simulation::simulation::*;
+use rand::Rng;
+use std::time::Duration;
+use futures_timer::Delay;
 
-mod simulation;
+use simulation::*;
+mod systems;
+mod agents;
+mod helpers;
+mod constants;
 
-struct TagState {
 
-}
-
-
-
-struct TagAgent{
-    pub position: Position,
-    pub is_it: bool,
-    pub systems: Vec<String>,
-}
-impl AgentState for TagAgent{
-    fn systems(&self) -> Vec<String> {
-        return self.systems;
-    }
-}
-
-#[derive(Default)]
-struct TagAgentSystem {
-
-}
-
-impl System for TagAgentSystem {
-    type StateData = StateStorage<TagAgent>;
-    fn simulate(&self, data: &mut Self::StateData) {
-        for agent in &mut data.agents {
-            agent.position.x += 1f32;   
-        }
-    }
-}
-
-type Systems = TagAgentSystem;
-type Agents = TagAgent;
 
 fn main() {
     println!("Hello, world!");
-    let world: World<Systems, Agents> = World {
-        agents: Vec::new(),
-        systems: Vec::new(),
-    };
-    let agent = TagAgent {
-        is_it: true,
-        position: Position {
-            x: 0f32,
-            y: 0f32,
-        },
-    };
-    world.add_agent(agent)
-    .add_system(TagAgentSystem::default(), String::from("Tag Agent System"));
+    let mut world = World::new();
+    create_player(&mut world, true);
+    for i in 0..10 {
+        create_player(&mut world, false);
+    }
+    world.add_system(systems::TagAgentSystem::default());
 
+}
+
+async fn simulation_tick(world: &mut World) {
+    world.run_systems();
+    Delay::new(Duration::from_millis(constants::TICK_TIME)).await;
+
+}
+
+fn create_player(world: &mut World, is_it: bool) {
+    let agent = agents::TagAgent {
+        is_it: is_it,
+        position: Position {
+            x: random_coordinate(),
+            y: random_coordinate(),
+        },
+        systems: vec![systems::TagAgentSystem::id()],
+        speed: constants::CHASER_SPEED,
+        last_hitter: String::new(),
+    };
+    world.add_agent(agent);
+}
+
+fn random_coordinate() -> f32 {
+    return rand::thread_rng().gen_range(0f32..constants::SCREEN_SIZE);
 }

@@ -1,5 +1,5 @@
 [package]
-name = "rust-agent-simulation-engine"
+name = "simulation"
 version = "0.1.0"
 authors = ["Liana Pigeot <32243840+nialna@users.noreply.github.com>"]
 edition = "2018"
@@ -8,3 +8,6 @@ edition = "2018"
 
 [dependencies]
 uuid = { version = "0.8", features = ["v4"] }
+cgmath = "0.18.0"
+rand = "0.8.3"
+futures-timer = "3.0.2"
