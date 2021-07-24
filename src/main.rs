@@ -24,7 +24,7 @@ fn main() {
 async fn simulation_tick(world: &mut World) {
     world.run_systems();
     Delay::new(Duration::from_millis(constants::TICK_TIME)).await;
-
+    simulation_tick(world);
 }
 
 fn create_player(world: &mut World, is_it: bool) {
