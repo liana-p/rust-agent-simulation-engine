@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cgmath::InnerSpace;
 use cgmath::MetricSpace;
 use simulation::*;
@@ -19,16 +21,13 @@ impl System for TagAgentSystem {
     fn dyn_id(&self) -> String {
         return TagAgentSystem::id();
     }
-    fn simulate<'a>(&self, agent: &'a mut Agent, agents: &'a mut Vec<Agent>) {
-        let data = agent.get_state_mut::<agents::TagAgent>();
-        if (data.is_it) {
+    fn simulate<'a>(&self, agent: &'a mut Agent, states: &'a mut HashMap<u128, Box<dyn AgentState>>) {
+        let data = agent.get_state_mut::<agents::TagAgent>(states);
+        if data.is_it {
             // Find closest enemy to run to
-            let others: Vec<&agents::TagAgent> = agents.into_iter()
-                .filter(|agent| agent.id != id && agent.id != data.last_hitter)
-                .map(|agent| {
-                    let mut state:<agents::TagAgent> = simulation::get_state_mut(agent);
-                    return state;
-                }).collect();
+            let others = states.iter_mut()
+                .filter(|&(key, state)| agent.id != *key && agent.id != data.last_hitter)
+                .map(|&(key, state)| state).collect();
             let closest = helpers::closest(data.position, others);
             // Move towards them
             TagAgentSystem::move_agent(&mut data, &(closest.position - data.position).normalize());
@@ -42,9 +41,10 @@ impl System for TagAgentSystem {
             }
         } else {
             // If we're not it, just run away
-            let danger = agents.iter().find(|agent| agent.state.as_ref().is_it);
-            if let Some(enemy) = danger {
-                let enemy_pos: Position = enemy.get_state_mut::<agents::TagAgent>().position;
+            let danger = states.iter_mut().find(|&(key, state)|
+                simulation::get_mut::<agents::TagAgent>(state).is_it);
+            if let Some((key, enemy)) = danger {
+                let enemy_pos: Position = simulation::get_mut::<agents::TagAgent>(enemy).position;
                 let flee_direction = (enemy_pos - data.position).normalize();
                 TagAgentSystem::move_agent(&mut data, &flee_direction);
             }

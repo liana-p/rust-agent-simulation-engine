@@ -5,7 +5,7 @@ use simulation::*;
 pub struct TagAgent {
     pub position: Position,
     pub is_it: bool,
-    pub last_hitter: String,
+    pub last_hitter: u128,
     pub systems: Vec<String>,
     pub speed: f32,
 }
@@ -20,8 +20,10 @@ impl AgentState for TagAgent{
     fn systems(&self) -> Vec<String> {
         return self.systems;
     }
-    fn as_any(self) -> Box<dyn Any> {
-        self as Box<dyn Any>
+    fn as_any(&'static self) -> Box<dyn Any> {
+        let res = Box::new(self) as Box<dyn Any>;
+        res
+        
     }
 }
 

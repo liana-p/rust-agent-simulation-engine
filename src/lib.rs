@@ -9,9 +9,8 @@
 ///
 
 use uuid::Uuid;
-use std::{any::Any, clone, collections::HashMap};
+use std::{any::Any, collections::HashMap};
 use cgmath::Vector2;
-use ::std::mem::take;
 
 pub type Position = Vector2<f32>;
 
@@ -22,30 +21,29 @@ pub trait AgentState {
     fn id() -> String where Self: Sized;
     fn dyn_id(&self) -> String;
     fn systems(&self) -> Vec<String>;
-    fn as_any(&self) -> Box<dyn Any>;
+    fn as_any(&'static self) -> Box<dyn Any>;
 }
 
 pub struct Agent {
-    pub id: String,
+    pub id: u128,
     pub systems: Vec<String>,
-    pub state: Box<dyn AgentState>,
 }
 impl Agent {
-    pub fn new<A: AgentState + 'static>(systems: Vec<String>, state: A) -> Agent {
+    pub fn new(systems: Vec<String>) -> Agent {
         return Agent {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4().to_u128_le(),
             systems: systems,
-            state: Box::new(state)
         };
     }
-    pub fn get_state_mut<S: AgentState + 'static>(&mut self) -> S {
-        return get::<S>(self.state.as_any());
+    pub fn get_state_mut<S: AgentState + 'static>(&mut self, states: &'static mut HashMap<u128, Box<dyn AgentState + 'static>>) -> S {
+        return get::<S>(states.get_mut(&self.id).unwrap().as_any());
     }
 }
 
 /// The World struct is the main struct that runs the simulation
 pub struct World {
     pub agents: Vec<Agent>,
+    pub agent_states: HashMap<u128, Box<dyn AgentState>>,
     pub systems: HashMap<String, Box<dyn System>>,
 }
 
@@ -53,35 +51,40 @@ impl World {
     pub fn new() -> Self {
         return World {
             agents: Vec::new(),
+            agent_states: HashMap::new(),
             systems: HashMap::new(),
         };
     }
     /// Adds an agent to the world
     pub fn add_agent<A: AgentState + 'static>(&mut self, state: A) -> &Self{
-        self.agents.push(Agent::new(Vec::new(), state));
-        return self;
+        let agent = Agent::new(Vec::new());
+        let id = agent.id;
+        self.agents.push(agent);
+        self.agent_states.insert(id, Box::new(state));
+        self
     }
 
     /// Adds a system to the available systems
     pub fn add_system<S: System + 'static>(&mut self, system: S) -> &Self {
       self.systems.insert(S::id(), Box::new(system));
-      return self;
+      self
     }
 
-    pub fn run_systems(mut self) {
-        for mut agent in self.agents {
+    pub fn run_systems(&mut self) -> &Self {
+        for agent in self.agents.iter_mut() {
             let systems = agent.systems.clone();
             for system_id in systems {
                 let system = self.systems.get(&system_id).unwrap();
                 // TODO: Can't figure out how to invoke the system
-                system.simulate(&mut agent,  &mut self.agents);
+                system.simulate(agent,  &mut self.agent_states);
             }
         }
+        self
     }
 
     pub fn get_states<A: AgentState>(&self) -> Option<A> {
-        for state in self.agents.iter() {
-        }
+        // for state in self.agents.iter() {
+        // }
         None
     }
 }
@@ -91,16 +94,17 @@ pub trait System {
     fn id() -> String where Self: Sized;
     fn dyn_id(&self) -> String;
     /// This function is called for every actor that uses the system and gives user code the opportunity to change the state
-    fn simulate<'a>(&self, agent: &'a mut Agent, agents: &'a mut Vec<Agent>);
+    fn simulate<'a>(&self, agent: &'a mut Agent, states: &'a mut HashMap<u128, Box<dyn AgentState>>);
 }
 
 /// I really wanted to make this work with a specific lifetimme, but can't find a way to downcast non-static trait objects
-fn get<T: Any>(value: Box<dyn Any>) -> T {
+pub fn get<T: Any>(value: Box<dyn Any>) -> T {
     let pv = value.downcast().expect("The pointed-to value must be of type T");
     *pv
 }
 
-// fn get_mut<T: Any>(value: Box<dyn Any>) -> &'static mut T {
-//     let mut pv = value.downcast().expect("The pointed-to value must be of type T");
-//     &mut pv
-// }
+pub fn get_mut<T: Any>(value: &mut Box<dyn Any>) -> &mut T {
+    let pv = value.downcast_mut().expect("The pointed-to value must be of type T");
+    pv
+}
+

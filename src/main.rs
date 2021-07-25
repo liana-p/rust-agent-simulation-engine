@@ -17,14 +17,19 @@ fn main() {
         create_player(&mut world, false);
     }
     world.add_system(systems::TagAgentSystem::default());
-    simulation_tick(&world);
+    start_simulation(world);
+}
 
+async fn start_simulation(mut world: World) {
+    loop {
+        simulation_tick(&mut world).await;
+    }
 }
 
 async fn simulation_tick(world: &mut World) {
+    println!("Simulation tick");
     world.run_systems();
     Delay::new(Duration::from_millis(constants::TICK_TIME)).await;
-    simulation_tick(world);
 }
 
 fn create_player(world: &mut World, is_it: bool) {
@@ -36,7 +41,7 @@ fn create_player(world: &mut World, is_it: bool) {
         },
         systems: vec![systems::TagAgentSystem::id()],
         speed: constants::CHASER_SPEED,
-        last_hitter: String::new(),
+        last_hitter: 0,
     };
     world.add_agent(agent);
 }
