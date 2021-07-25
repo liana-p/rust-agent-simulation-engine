@@ -23,7 +23,7 @@ impl System for TagAgentSystem {
         let data = agent.get_state_mut::<agents::TagAgent>();
         if (data.is_it) {
             // Find closest enemy to run to
-            let others: Vec<&agents::TagAgent> = world.agents.into_iter()
+            let others: Vec<&agents::TagAgent> = agents.into_iter()
                 .filter(|agent| agent.id != id && agent.id != data.last_hitter)
                 .map(|agent| {
                     let mut state:<agents::TagAgent> = simulation::get_state_mut(agent);
@@ -42,7 +42,7 @@ impl System for TagAgentSystem {
             }
         } else {
             // If we're not it, just run away
-            let danger = world.agents.iter().find(|agent| agent.state.as_ref().is_it);
+            let danger = agents.iter().find(|agent| agent.state.as_ref().is_it);
             if let Some(enemy) = danger {
                 let enemy_pos: Position = enemy.get_state_mut::<agents::TagAgent>().position;
                 let flee_direction = (enemy_pos - data.position).normalize();
