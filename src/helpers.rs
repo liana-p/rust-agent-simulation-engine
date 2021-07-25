@@ -2,7 +2,7 @@ use cgmath::{BaseNum, MetricSpace};
 use simulation::*;
 use crate::agents;
 
-pub fn closest(me: Position, others: Vec<&agents::TagAgent>) -> agents::TagAgent {
+pub fn closest(me: Position, others: Vec<&mut agents::TagAgent>) -> &mut agents::TagAgent {
     others.sort_by(|a, b| {
         return me.distance(a.position).partial_cmp(&me.distance(b.position)).unwrap();
     });

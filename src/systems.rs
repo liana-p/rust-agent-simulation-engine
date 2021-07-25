@@ -25,16 +25,19 @@ impl System for TagAgentSystem {
         let data = agent.get_state_mut::<agents::TagAgent>(states);
         if data.is_it {
             // Find closest enemy to run to
-            let others = states.iter_mut()
+            let others: Vec<&mut agents::TagAgent> = states.iter_mut()
                 .filter(|&(key, state)| agent.id != *key && agent.id != data.last_hitter)
-                .map(|&(key, state)| state).collect();
+                .map(|(key, state)| {
+                    let result = simulation::get_mut::<agents::TagAgent>(&mut state.as_any());
+                    result
+                }).collect();
             let closest = helpers::closest(data.position, others);
             // Move towards them
             TagAgentSystem::move_agent(&mut data, &(closest.position - data.position).normalize());
             // If we're close enough, hit them
             if data.position.distance(closest.position) <= constants::HIT_DISTANCE {
                 closest.is_it = true;
-                closest.last_hitter = id;
+                closest.last_hitter = agent.id;
                 closest.speed = constants::CHASER_SPEED;
                 data.is_it = false;
                 data.speed = constants::NORMAL_SPEED;
@@ -42,9 +45,9 @@ impl System for TagAgentSystem {
         } else {
             // If we're not it, just run away
             let danger = states.iter_mut().find(|&(key, state)|
-                simulation::get_mut::<agents::TagAgent>(state).is_it);
+                simulation::get_mut::<agents::TagAgent>(&mut state.as_any()).is_it);
             if let Some((key, enemy)) = danger {
-                let enemy_pos: Position = simulation::get_mut::<agents::TagAgent>(enemy).position;
+                let enemy_pos: Position = simulation::get_mut::<agents::TagAgent>(&mut enemy.as_any()).position;
                 let flee_direction = (enemy_pos - data.position).normalize();
                 TagAgentSystem::move_agent(&mut data, &flee_direction);
             }

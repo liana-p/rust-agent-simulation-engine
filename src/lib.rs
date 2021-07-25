@@ -9,7 +9,7 @@
 ///
 
 use uuid::Uuid;
-use std::{any::Any, collections::HashMap};
+use std::{any::Any, collections::HashMap, mem::take};
 use cgmath::Vector2;
 
 pub type Position = Vector2<f32>;
@@ -35,6 +35,7 @@ impl Agent {
             systems: systems,
         };
     }
+    // How do I get this to work without static?
     pub fn get_state_mut<S: AgentState + 'static>(&mut self, states: &'static mut HashMap<u128, Box<dyn AgentState + 'static>>) -> S {
         return get::<S>(states.get_mut(&self.id).unwrap().as_any());
     }
@@ -70,13 +71,14 @@ impl World {
       self
     }
 
-    pub fn run_systems(&mut self) -> &Self {
+    pub fn run_systems(&'static mut self) -> &Self {
         for agent in self.agents.iter_mut() {
             let systems = agent.systems.clone();
             for system_id in systems {
+                let mut states = take(&mut self.agent_states);
                 let system = self.systems.get(&system_id).unwrap();
                 // TODO: Can't figure out how to invoke the system
-                system.simulate(agent,  &mut self.agent_states);
+                system.simulate(agent, &mut states);
             }
         }
         self
@@ -105,6 +107,11 @@ pub fn get<T: Any>(value: Box<dyn Any>) -> T {
 
 pub fn get_mut<T: Any>(value: &mut Box<dyn Any>) -> &mut T {
     let pv = value.downcast_mut().expect("The pointed-to value must be of type T");
+    pv
+}
+
+pub fn get_ref<T: Any>(value: &Box<dyn Any>) -> &T {
+    let pv = value.downcast_ref().expect("The pointed-to value must be of type T");
     pv
 }
 

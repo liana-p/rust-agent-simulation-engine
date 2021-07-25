@@ -22,8 +22,7 @@ impl AgentState for TagAgent{
     }
     fn as_any(&'static self) -> Box<dyn Any> {
         let res = Box::new(self) as Box<dyn Any>;
-        res
-        
+        res   
     }
 }
 
