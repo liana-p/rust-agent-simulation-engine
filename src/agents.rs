@@ -2,7 +2,7 @@ use std::any::Any;
 
 use simulation::*;
 #[derive(Clone)]
-pub struct TagAgent{
+pub struct TagAgent {
     pub position: Position,
     pub is_it: bool,
     pub last_hitter: String,
@@ -20,11 +20,8 @@ impl AgentState for TagAgent{
     fn systems(&self) -> Vec<String> {
         return self.systems;
     }
-    fn as_any(&self) -> &dyn Any {
-        self as &dyn Any
-    }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self as &mut dyn Any
+    fn as_any(self) -> Box<dyn Any> {
+        self as Box<dyn Any>
     }
 }
 

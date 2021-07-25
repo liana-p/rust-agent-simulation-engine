@@ -13,14 +13,14 @@ impl TagAgentSystem {
     }
 }
 impl System for TagAgentSystem {
-    type StateData = agents::TagAgent;
     fn id() -> String {
         return String::from("Tag System");
     }
     fn dyn_id(&self) -> String {
         return TagAgentSystem::id();
     }
-    fn simulate(&self, id: String, data: &mut agents::TagAgent, world: &mut World) {
+    fn simulate<'a>(&self, agent: &'a mut Agent, agents: &'a mut Vec<Agent>) {
+        let data = agent.get_state_mut::<agents::TagAgent>();
         if (data.is_it) {
             // Find closest enemy to run to
             let others: Vec<&agents::TagAgent> = world.agents.into_iter()
@@ -44,7 +44,7 @@ impl System for TagAgentSystem {
             // If we're not it, just run away
             let danger = world.agents.iter().find(|agent| agent.state.as_ref().is_it);
             if let Some(enemy) = danger {
-                let enemy_pos: Position = enemy.state.position;
+                let enemy_pos: Position = enemy.get_state_mut::<agents::TagAgent>().position;
                 let flee_direction = (enemy_pos - data.position).normalize();
                 TagAgentSystem::move_agent(&mut data, &flee_direction);
             }

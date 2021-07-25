@@ -9,34 +9,44 @@
 ///
 
 use uuid::Uuid;
-use std::{any::Any, collections::HashMap};
+use std::{any::Any, clone, collections::HashMap};
 use cgmath::Vector2;
+use ::std::mem::take;
 
 pub type Position = Vector2<f32>;
 
 /// The main trait that all agent state structs need to implement
+/// 
+/// Ideally should have a specific non-static lifetime, but I couldn't get that to work with trait objects
 pub trait AgentState {
     fn id() -> String where Self: Sized;
     fn dyn_id(&self) -> String;
     fn systems(&self) -> Vec<String>;
-    fn as_any(&self) -> &dyn std::any::Any;
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+    fn as_any(&self) -> Box<dyn Any>;
 }
 
 pub struct Agent {
     pub id: String,
+    pub systems: Vec<String>,
     pub state: Box<dyn AgentState>,
 }
-
-pub struct SystemStorage<S: System> {
-    pub system: S,
-    pub id: String,
+impl Agent {
+    pub fn new<A: AgentState + 'static>(systems: Vec<String>, state: A) -> Agent {
+        return Agent {
+            id: Uuid::new_v4().to_string(),
+            systems: systems,
+            state: Box::new(state)
+        };
+    }
+    pub fn get_state_mut<S: AgentState + 'static>(&mut self) -> S {
+        return get::<S>(self.state.as_any());
+    }
 }
 
 /// The World struct is the main struct that runs the simulation
 pub struct World {
-    pub agents: Vec<Box<Agent>>,
-    pub systems: HashMap<String, Box<dyn StoredSystem<dyn AgentState>>>,
+    pub agents: Vec<Agent>,
+    pub systems: HashMap<String, Box<dyn System>>,
 }
 
 impl World {
@@ -48,36 +58,28 @@ impl World {
     }
     /// Adds an agent to the world
     pub fn add_agent<A: AgentState + 'static>(&mut self, state: A) -> &Self{
-        self.agents.push(Box::new(Agent {
-            id: Uuid::new_v4().to_string(),
-            state: Box::new(state)
-        }));
+        self.agents.push(Agent::new(Vec::new(), state));
         return self;
     }
 
     /// Adds a system to the available systems
-    pub fn add_system<S: System, A: AgentState + 'static>(&mut self, system: S) -> &Self {
-        // TODO: Can't figure out how to insert the system because of object trait size issues
-      let stored_system = Box::new(StoredSystemStruct {
-        system: system,
-      }) as Box<dyn StoredSystem<dyn AgentState>>;
-      self.systems.insert(S::id(), stored_system);
+    pub fn add_system<S: System + 'static>(&mut self, system: S) -> &Self {
+      self.systems.insert(S::id(), Box::new(system));
       return self;
     }
 
-    pub fn run_systems(&mut self) -> &Self {
-        for agent in self.agents.iter() {
-            let state = agent.state.as_ref();
-            for system_id in state.systems() {
+    pub fn run_systems(mut self) {
+        for mut agent in self.agents {
+            let systems = agent.systems.clone();
+            for system_id in systems {
                 let system = self.systems.get(&system_id).unwrap();
                 // TODO: Can't figure out how to invoke the system
-                system.simulate(agent.id, state, self);
+                system.simulate(&mut agent,  &mut self.agents);
             }
         }
-        return self;
     }
 
-    pub fn get_states<A: AgentState + 'static>(&self) -> Option<A> {
+    pub fn get_states<A: AgentState>(&self) -> Option<A> {
         for state in self.agents.iter() {
         }
         None
@@ -86,29 +88,19 @@ impl World {
 
 /// The main trait that all system structs need to implement
 pub trait System {
-    type StateData: AgentState;
     fn id() -> String where Self: Sized;
     fn dyn_id(&self) -> String;
     /// This function is called for every actor that uses the system and gives user code the opportunity to change the state
-    fn simulate(&self, id: String, state: &mut Self::StateData, world: &mut World);
-}
-pub trait StoredSystem<A: AgentState> {
-  fn run(&self, id: String, state: &mut A, world: &mut World);
-  fn simulate(&self, id: String, state: &mut A, world: &mut World);
+    fn simulate<'a>(&self, agent: &'a mut Agent, agents: &'a mut Vec<Agent>);
 }
 
-pub struct StoredSystemStruct<S: System> {
-  system: S
-}
-impl<A, S> StoredSystem<A> for StoredSystemStruct<S>
-where A: AgentState,
-S: System {
-  fn run(&self, id: String, state: &mut A, world: &mut World) {
-    self.simulate(id, state, world);
-  }
-  fn simulate(&self, _id: String, _state: &mut A, _world: &mut World) {}
+/// I really wanted to make this work with a specific lifetimme, but can't find a way to downcast non-static trait objects
+fn get<T: Any>(value: Box<dyn Any>) -> T {
+    let pv = value.downcast().expect("The pointed-to value must be of type T");
+    *pv
 }
 
-pub fn get_state_mut<'a, T: AgentState>(agent: Box<Agent>) -> &'a mut T {
-    return agent.state.as_any().downcast_mut::<T>().unwrap();
-}
+// fn get_mut<T: Any>(value: Box<dyn Any>) -> &'static mut T {
+//     let mut pv = value.downcast().expect("The pointed-to value must be of type T");
+//     &mut pv
+// }
